@@ -27,13 +27,28 @@ const TripMap = ({
   const [activeMarker, setActiveMarker] = useState(null);
   const [mapCenter, setMapCenter] = useState(center);
 
+  // 调试：打印环境变量
+  useEffect(() => {
+    console.log('=== 百度地图配置调试 ===');
+    console.log('VITE_BAIDU_MAP_AK:', import.meta.env.VITE_BAIDU_MAP_AK);
+    console.log('是否配置:', isBaiduMapConfigured());
+    try {
+      console.log('获取AK:', getBaiduMapAK());
+    } catch (e) {
+      console.error('获取AK错误:', e);
+    }
+    console.log('景点数量:', locations.length);
+    console.log('景点数据:', locations);
+    console.log('========================');
+  }, [locations]);
+
   // 检查API Key配置
   useEffect(() => {
     try {
       if (!isBaiduMapConfigured()) {
         throw createBaiduMapError(
           BaiduMapErrorType.MISSING_AK,
-          '百度地图API Key未配置，请联系管理员设置 VITE_BAIDU_MAP_AK 环境变量'
+          `百度地图API Key未配置，请联系管理员设置 VITE_BAIDU_MAP_AK 环境变量。当前AK值："${import.meta.env.VITE_BAIDU_MAP_AK || '空'}"`
         );
       }
       getBaiduMapAK();
