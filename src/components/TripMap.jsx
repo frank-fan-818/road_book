@@ -1,22 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Map, Marker, NavigationControl, ScaleControl, InfoWindow } from '@uiw/react-baidu-map';
 import { isBaiduMapConfigured, getBaiduMapAK, BaiduMapErrorType, createBaiduMapError } from '../lib/baiduMap';
 
 /**
  * 行程地图组件
  * 用于显示旅行路线和景点位置
- * @param {Object} props
- * @param {Array} props.locations - 景点位置数组 [{ lng, lat, title, address, description }]
- * @param {Object} props.center - 地图中心点 { lng, lat }，默认自动计算中心点
- * @param {number} props.zoom - 缩放级别，默认13
- * @param {string} props.height - 地图高度，默认400px
- * @param {boolean} props.showNavigation - 是否显示导航控件，默认true
- * @param {boolean} props.showScale - 是否显示比例尺，默认true
- * @param {Function} props.onMarkerClick - 标记点击回调
  */
 const TripMap = ({
   locations = [],
-  center,
+  center: propCenter,
   zoom = 13,
   height = '400px',
   showNavigation = true,
@@ -25,7 +17,7 @@ const TripMap = ({
 }) => {
   const [error, setError] = useState(null);
   const [activeMarker, setActiveMarker] = useState(null);
-  const [mapCenter, setMapCenter] = useState(center);
+  const [mapReady, setMapReady] = useState(false);
 
   // 调试：打印环境变量
   useEffect(() => {
@@ -38,9 +30,10 @@ const TripMap = ({
       console.error('获取AK错误:', e);
     }
     console.log('景点数量:', locations.length);
-    console.log('景点数据:', locations);
+    console.log('景点数据:', JSON.stringify(locations));
+    console.log('propCenter:', propCenter);
     console.log('========================');
-  }, [locations]);
+  }, [locations, propCenter]);
 
   // 检查API Key配置
   useEffect(() => {
@@ -58,21 +51,25 @@ const TripMap = ({
     }
   }, []);
 
-  // 自动计算中心点
-  useEffect(() => {
-    if (center || locations.length === 0) return;
-
-    try {
-      // 计算所有点的中心点
-      const lngs = locations.map(loc => loc.lng);
-      const lats = locations.map(loc => loc.lat);
-      const avgLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-      const avgLat = lats.reduce((a, b) => a + b, 0) / lats.length;
-      setMapCenter({ lng: avgLng, lat: avgLat });
-    } catch (err) {
-      console.error('计算地图中心点失败:', err);
+  // 直接计算地图中心点（同步方式）
+  const computedCenter = useMemo(() => {
+    // 如果有传入的center，优先使用
+    if (propCenter && propCenter.lng && propCenter.lat) {
+      return propCenter;
     }
-  }, [locations, center]);
+    // 如果没有传入center但有locations，计算中心点
+    if (locations && locations.length > 0) {
+      const validLocations = locations.filter(loc => loc.lng && loc.lat);
+      if (validLocations.length > 0) {
+        const lngs = validLocations.map(loc => loc.lng);
+        const lats = validLocations.map(loc => loc.lat);
+        const avgLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+        const avgLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+        return { lng: avgLng, lat: avgLat };
+      }
+    }
+    return undefined;
+  }, [locations, propCenter]);
 
   // 处理标记点击
   const handleMarkerClick = (location, event) => {
@@ -103,7 +100,7 @@ const TripMap = ({
   }
 
   // 无景点数据渲染
-  if (locations.length === 0) {
+  if (!locations || locations.length === 0) {
     return (
       <div className="flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg p-8" style={{ height }}>
         <div className="text-center">
@@ -118,22 +115,35 @@ const TripMap = ({
     );
   }
 
-  if (!mapCenter) {
+  // 如果中心点计算失败
+  if (!computedCenter) {
     return (
-      <div className="flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg" style={{ height }}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg p-8" style={{ height }}>
+        <div className="text-center">
+          <p className="text-gray-500">无法计算地图中心点</p>
+          <p className="text-gray-400 text-xs mt-2">locations: {JSON.stringify(locations)}</p>
+        </div>
       </div>
     );
   }
+
+  console.log('=== 地图渲染参数 ===');
+  console.log('AK:', getBaiduMapAK());
+  console.log('center:', computedCenter);
+  console.log('zoom:', zoom);
+  console.log('locations count:', locations.length);
+  console.log('====================');
 
   return (
     <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm" style={{ height }}>
       <Map
         ak={getBaiduMapAK()}
-        center={mapCenter}
+        center={computedCenter}
         zoom={zoom}
         enableScrollWheelZoom
         style={{ width: '100%', height: '100%' }}
+        enableDragging
+        enableDblclickZoom
       >
         {showNavigation && <NavigationControl />}
         {showScale && <ScaleControl />}
@@ -142,7 +152,7 @@ const TripMap = ({
           <Marker
             key={index}
             position={{ lng: location.lng, lat: location.lat }}
-            title={location.title}
+            title={location.title || location.loc}
             onClick={(e) => handleMarkerClick(location, e)}
           />
         ))}
@@ -150,7 +160,7 @@ const TripMap = ({
         {activeMarker && (
           <InfoWindow
             position={{ lng: activeMarker.lng, lat: activeMarker.lat }}
-            title={<div className="font-medium text-gray-800">{activeMarker.title}</div>}
+            title={<div className="font-medium text-gray-800">{activeMarker.title || activeMarker.loc}</div>}
             onClose={handleCloseInfoWindow}
           >
             <div className="text-sm p-2">
@@ -159,6 +169,9 @@ const TripMap = ({
               )}
               {activeMarker.description && (
                 <p className="text-gray-500">{activeMarker.description}</p>
+              )}
+              {activeMarker.desc && (
+                <p className="text-gray-500">{activeMarker.desc}</p>
               )}
             </div>
           </InfoWindow>
