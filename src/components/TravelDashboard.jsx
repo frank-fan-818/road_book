@@ -2,6 +2,15 @@ import { useState, useMemo } from 'react';
 import { MapPin, Utensils, Camera, Info, Sparkles, ChevronRight, Clock, Ticket, Navigation } from 'lucide-react';
 import TripMap from './TripMap';
 
+// 目的地提取函数
+const extractDestination = (title) => {
+  const destinations = ['佛山', '东京', '上海', '北京', '巴黎', '伦敦', '纽约', '罗马', '首尔', '曼谷', '新加坡', '悉尼', '欧洲', '日本', '韩国', '泰国'];
+  for (const dest of destinations) {
+    if (title.includes(dest)) return dest;
+  }
+  return '其他';
+};
+
 const TravelDashboard = ({ travelData, onReset }) => {
   const [activeDay, setActiveDay] = useState(0);
   const [selectedActivity, setSelectedActivity] = useState(null);
@@ -75,7 +84,7 @@ const TravelDashboard = ({ travelData, onReset }) => {
           <h1 className="text-3xl font-extrabold tracking-tight">{travelData.title}</h1>
           <div className="flex items-center text-slate-500 mt-2">
             <MapPin size={16} className="mr-1" />
-            <span>东京 · {currentDayData.date}</span>
+            <span>{travelData.destination || extractDestination(travelData.title)} · {currentDayData.date}</span>
           </div>
         </header>
 
