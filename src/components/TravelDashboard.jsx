@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { MapPin, Utensils, Camera, Info, Sparkles, ChevronRight, Clock, Ticket, Navigation } from 'lucide-react';
 import TripMap from './TripMap';
+import ExchangeRateWidget from './ExchangeRateWidget';
 
 // 目的地提取函数
 const extractDestination = (title) => {
@@ -128,6 +129,8 @@ const TravelDashboard = ({ travelData, onReset }) => {
         />
 
         <div className="space-y-6">
+          <ExchangeRateWidget />
+
           <section>
             <h4 className="flex items-center font-bold text-slate-800 mb-3">
               <Sparkles size={18} className="mr-2 text-amber-500" /> AI 智能建议
